@@ -24,7 +24,8 @@ const handleResponse = async (response) => {
     throw new Error(text || 'API Request Failed');
   }
   if (response.status === 204) return null;
-  return response.json();
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 };
 
 export const api = {

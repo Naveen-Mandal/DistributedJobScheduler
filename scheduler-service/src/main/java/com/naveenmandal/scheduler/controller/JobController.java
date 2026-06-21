@@ -56,25 +56,25 @@ public class JobController {
     @PostMapping("/jobs/{id}/pause")
     public ResponseEntity<Void> pauseJob(@PathVariable UUID id) {
         jobService.pauseJob(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/jobs/{id}/resume")
     public ResponseEntity<Void> resumeJob(@PathVariable UUID id) {
         jobService.resumeJob(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/jobs/{id}/run")
     public ResponseEntity<Void> runNow(@PathVariable UUID id) {
         jobService.triggerNow(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/jobs/{id}/requeue")
     public ResponseEntity<Void> requeueDlq(@PathVariable UUID id) {
         jobService.requeueDlq(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     // --- History & Monitoring ---
