@@ -44,6 +44,19 @@ export const api = {
     return data;
   },
 
+  register: async (username, password) => {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || 'Registration Failed');
+    }
+    return res.text();
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
