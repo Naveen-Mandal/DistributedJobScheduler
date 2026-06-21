@@ -4,6 +4,7 @@ import com.naveenmandal.scheduler.dto.JobCreateRequest;
 import com.naveenmandal.scheduler.dto.JobResponse;
 import com.naveenmandal.scheduler.model.JobExecution;
 import com.naveenmandal.scheduler.service.JobService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.quartz.CronExpression;
 import org.springframework.http.MediaType;
@@ -26,7 +27,7 @@ public class JobController {
     // --- Job CRUD ---
 
     @PostMapping("/jobs")
-    public ResponseEntity<JobResponse> createJob(@RequestBody JobCreateRequest request) {
+    public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobCreateRequest request) {
         return ResponseEntity.ok(jobService.createJob(request));
     }
 
@@ -41,7 +42,7 @@ public class JobController {
     }
 
     @PutMapping("/jobs/{id}")
-    public ResponseEntity<JobResponse> updateJob(@PathVariable UUID id, @RequestBody JobCreateRequest request) {
+    public ResponseEntity<JobResponse> updateJob(@PathVariable UUID id, @Valid @RequestBody JobCreateRequest request) {
         return ResponseEntity.ok(jobService.updateJob(id, request));
     }
 
