@@ -1,6 +1,6 @@
-# Production-Grade Distributed Job Scheduler
+# Enterprise-Grade Distributed Job Scheduler (Monorepo)
 
-A complete, resume-ready **Distributed Job Scheduler** designed for high throughput, fault tolerance, and zero duplicate executions. The system is split into an active-active scheduling layer (`scheduler-service`) and a horizontally scalable execution layer (`worker-service`).
+A production-grade, highly resilient **Distributed Job Scheduler** designed for high throughput, fault tolerance, and zero duplicate executions. The system is architected as a Maven monorepo, separating shared data models from an active-active scheduling plane (`scheduler-service`) and a horizontally scalable execution plane (`worker-service`).
 
 ---
 
@@ -20,6 +20,10 @@ graph TD
     subgraph Shared Storage & Coordination
         DB[(PostgreSQL - Database)]
         Redis[(Redis - Distributed Lock)]
+    end
+
+    subgraph Shared Core Library
+        Common[common-module]
     end
 
     subgraph Messaging Pipeline [Apache Kafka]
@@ -71,40 +75,65 @@ graph TD
     W1 ---> HTTP
     W2 ---> Shell
     W3 ---> Mail
+
+    %% Dependency references
+    S1 -.->|Depends on| Common
+    S2 -.->|Depends on| Common
+    W1 -.->|Depends on| Common
+    W2 -.->|Depends on| Common
+    W3 -.->|Depends on| Common
 ```
 
 ---
 
-## Technology Stack
+## Project Structure
 
-- **Backend core**: Spring Boot 3.2.4 (Java 17)
-- **Database**: PostgreSQL 15 (Stores job rules, execution logs, and Quartz clustered metadata)
-- **Distributed Cache & Locking**: Redis 7 + Redisson (Distributed `RLock` synchronization)
-- **Distributed Queue**: Apache Kafka (Handles workload dispatch, retries, and DLQ routing)
-- **Trigger Engine**: Quartz Scheduler (JDBC Clustered Mode)
-- **Frontend Dashboard**: React + Vite + CSS Modules + Lucide icons (Real-time live monitoring via SSE)
-- **Security**: JWT Authentication + whitelisted execution controls
+This monorepo uses Maven to coordinate dependencies and build lifecycle stages:
+
+```
+├── common-module/              # Shared core module containing reusable domain logic
+│   ├── pom.xml
+│   └── src/main/java/com/naveenmandal/common/
+│       ├── model/              # Database entities (Job, JobExecution, enums)
+│       ├── event/              # Event messaging objects (JobEvent)
+│       └── repository/         # Spring Data JPA repositories
+├── scheduler-service/          # Control Plane: JWT auth, REST APIs, Quartz clustering
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/java/com/naveenmandal/scheduler/
+├── worker-service/             # Execution Plane: Kafka consumers & execution executors
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/java/com/naveenmandal/worker/
+│       └── service/            # JobWorkerService (Listeners) & JobExecutionHandler (Transactional)
+├── frontend/                   # React Frontend built with Vite & served via Nginx
+├── docker-compose.yml          # Local orchestration setup for all microservices
+└── pom.xml                     # Monorepo root pom.xml (module registry)
+```
 
 ---
 
 ## Core System Design Features
 
 ### 1. Quartz JDBC Clustering
-Instead of using in-memory triggers that fire concurrently on each server instance, we configure Quartz with `spring.quartz.job-store-type=jdbc` and enable `org.quartz.jobStore.isClustered=true`. Triggers are persisted in PostgreSQL, and nodes negotiate locks using the database to guarantee that only one scheduler node triggers a job fire.
+Quartz is configured with `spring.quartz.job-store-type=jdbc` and `org.quartz.jobStore.isClustered=true`. Trigger locks are persisted in PostgreSQL, preventing active-active scheduler instances from triggering concurrent duplicate fires.
 
 ### 2. Double Safety Distributed Lock (Redisson)
-Even with database clustering, minor clock drift or network anomalies can cause Quartz to fire duplicate triggers. We implement a secondary lock layer: before pushing the event to Kafka, the scheduling node must acquire a Redis lock using `SETNX` through Redisson. If the lock is held, the execution is skipped as a duplicate.
+> [!NOTE]
+> Database clustering can experience clock drift or database lock transaction delays under peak loads. 
+> To prevent duplicate executions, we implement a secondary in-memory lock check using Redisson's distributed `RLock`. The node must acquire this sub-millisecond key before submitting a task to Kafka; otherwise, the execution is skipped as a duplicate.
 
-### 3. Horizontally Scalable Workers (Kafka Queue)
-Jobs are pushed to the Kafka `job.queue` topic. Since the topic has 3 partitions and we deploy 3 worker nodes, Kafka handles automatic load distribution. Workers operate statelessly: they pull triggers, run the payload (`HTTP_CALL`, `SHELL`, or `EMAIL`), and write results to the shared database.
+### 3. Kafka Queue Worker Load Balancing
+Triggers are enqueued to the Kafka `job.queue` topic. Using partition keying, workloads are automatically distributed round-robin among stateless workers. 
 
-### 4. Exponential Backoff Failover Routing
-When a task fails (e.g., target server is down), the worker service catches the exception. If the retry count is below the configured max retries, it publishes to `job.retry`. The retry listener calculates a delay using:
-`Delay = 2^(Retry Count) * 1000 ms`
-After sleeping for this delay, the task is re-run. If it fails repeatedly and max retries are exhausted, it routes to `job.dlq` (Dead Letter Queue).
+### 4. Non-Blocking Exponential Backoff & DLQ Routing
+When a task execution fails, the worker intercepts the exception. If the retry count is within boundaries, the worker schedules a retry on `job.retry`. 
+- **Backoff Formula**: `Delay = 2^(Retry Count) * 1000 ms`
+- Sleep delays are run **outside** transactional boundaries to avoid blocking DB connection pools.
+- If all retries are exhausted, the event is routed to `job.dlq` (Dead Letter Queue).
 
 ### 5. Server-Sent Events (SSE) Live Feed
-Rather than polluting the database with constant API polling, the React UI connects to `GET /api/executions/stream`. When workers finish execution, they push a message to Kafka's `job.execution.updates` topic. The scheduler service consumes the message and forwards it via SSE to all connected clients.
+Dashboard telemetry avoids continuous REST API polling. Telemetry updates are pushed by workers to `job.execution.updates`, consumed by the control plane, and streamed live to connected browsers using SSE (`/api/executions/stream`).
 
 ---
 
@@ -112,15 +141,22 @@ Rather than polluting the database with constant API polling, the React UI conne
 
 ### Prerequisites
 - Docker and Docker Compose installed.
+- Java 17 and Maven (optional, required for local IDE compilation).
 
-### Quick Start Commands
-1. **Clone and Run**:
+### Local IDE Compilation Setup
+To populate your host's local `.m2` repository and prevent dependency import errors in your editor:
+```bash
+mvn clean install -DskipTests
+```
+
+### Docker Quick Start
+1. **Build and Run Containers**:
    ```bash
    docker compose up --build -d
    ```
-2. **Access the Dashboard**:
-   - Open your browser and navigate to `http://localhost:3000`.
-3. **Login Details**:
+2. **Access the Web Dashboard**:
+   - Open `http://localhost:3000`.
+3. **Seed Credentials**:
    - **Username**: `admin`
    - **Password**: `admin123`
 
@@ -128,29 +164,26 @@ Rather than polluting the database with constant API polling, the React UI conne
 
 ## Interview & Resume Talking Points
 
-### 1. Typical Interview Q&A
+### 1. Architectural Highlights
 
-#### Q: Why do you need Redis Locks if Quartz is already configured for JDBC Clustering?
-> **Answer**: Database-backed clustering in Quartz operates on transaction isolation levels and polling intervals (often several seconds). Under heavy load, clock drifts, or database transaction locks, multiple schedulers can fetch the same trigger record simultaneously. Integrating Redisson distributed locks creates a lightweight, sub-millisecond memory lock check that acts as a double safety layer.
+#### Q: How does transaction demarcation work during worker execution?
+> **Answer**: All database state writes and subsequent message routing (retry/DLQ dispatch) occur inside an atomic `@Transactional` boundary inside `JobExecutionHandler`. However, the exponential backoff sleep delay is executed in `JobWorkerService` **outside** the transaction. This prevents holding open database connections during thread sleeps, eliminating connection pool exhaustion issues.
 
-#### Q: How did you implement atomic transactions in the Worker Service?
-> **Answer**: The worker executes inside a Spring `@Transactional` wrapper. The execution log is updated to `RUNNING` in PostgreSQL. When the execution completes (or fails), the status write to the database and any Kafka retry notifications are executed in the same transaction. If the database transaction fails, the Kafka broker offset commit rolls back, preventing lost messages.
+#### Q: Why did you split JobWorkerService and JobExecutionHandler?
+> **Answer**: Spring's `@Transactional` annotation relies on AOP proxies. Calling a `@Transactional` method internally from within the same class bypasses the proxy, failing to start a transaction. Rather than using smelly code turnarounds (like `@Lazy self-injection`), we cleanly segregated concerns: `JobWorkerService` handles listener consumption and thread sleeps, while `JobExecutionHandler` handles transactional database writes.
 
-#### Q: What are the security risks of the Shell Executor and how did you resolve them?
-> **Answer**: Executing shell commands via Java's `ProcessBuilder` is prone to shell injection attacks. To prevent this, we enforce three layers of security:
-> 1. **Whitelist Sanitization**: Commands must match a strict regex filter: `^[a-zA-Z0-9\s\-_/\.:=?&]+$`, blocking shell metacharacters like `;`, `&`, `|`, `$` or `>`.
-> 2. **Type Locking**: Users cannot update a job's type from HTTP to Shell after creation.
-> 3. **Non-Root Execution**: In Docker, the worker runs under a limited, non-privileged system user account, locking down system-level access.
-
-#### Q: How does the DLQ Requeue feature work?
-> **Answer**: When a task lands in the DLQ, it is flagged as failed. In the frontend DLQ Manager, operators can inspect the failure stack trace and click **"Requeue Task"**. This dispatches the task back to the active `job.queue` with its retry count reset to 0, leaving the original Quartz cron trigger untouched.
+#### Q: What security practices did you enforce?
+> **Answer**: 
+> 1. **Docker Container Hardening**: Modified execution stages in both service Dockerfiles to compile and run using a non-root system user (`appuser`), minimizing host takeover risks.
+> 2. **Shell Injection Prevention**: Restrict OS command triggers using a whitelisted regex: `^[a-zA-Z0-9\s\-_/\.:=?&]+$`, blocking metacharacters like `;`, `&`, `|`, or `$`.
+> 3. **Input Validation**: Configured Hibernate constraints (`@NotBlank`, `@Min`, `@Max`, `@Size`) on incoming REST API requests using the Spring validation starter.
 
 ---
 
-### 2. Live Demo Script (For Interviews)
+## Live Demo Verification Script
 
-#### Step 1: Distributed Load Balancing
-Verify that Quartz schedules tasks to one node and Kafka distributes executions across workers:
+### Step 1: Monitor Clustered Log Outputs
+Open terminal tabs to verify load distribution and clustering safety:
 ```bash
 # Check scheduler logs (only one node triggers the job)
 docker logs -f scheduler-service
@@ -162,11 +195,11 @@ docker logs -f worker-2
 docker logs -f worker-3
 ```
 
-#### Step 2: Retry with Exponential Backoff
-1. In the React UI, create an `HTTP_CALL` job targeting an invalid URL (e.g. `https://invalid-host-abc-123.com`).
-2. Watch the logs. You will see:
-   - **Attempt 1**: Fails. Published to `job.retry`.
-   - **Attempt 2**: Runs after a 2-second backoff delay. Fails.
-   - **Attempt 3**: Runs after a 4-second backoff delay. Fails.
-   - **Attempt 4**: Runs after an 8-second backoff delay. Fails.
-   - **DLQ Routing**: Retries exhausted. Job is routed to DLQ.
+### Step 2: Test Backoff Failures
+1. Create an `HTTP_CALL` trigger in the web dashboard targeting a nonexistent URL (e.g. `https://broken-api-endpoint.com`).
+2. Monitor worker console feeds. You will witness:
+   - **Attempt 1**: Fails, enqueues to `job.retry`.
+   - **Attempt 2**: Sleep 2s -> Fails.
+   - **Attempt 3**: Sleep 4s -> Fails.
+   - **Attempt 4**: Sleep 8s -> Fails.
+   - **DLQ Enqueue**: Forwarded to dead letter queue.
