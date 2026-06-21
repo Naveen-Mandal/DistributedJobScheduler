@@ -8,6 +8,8 @@ import com.naveenmandal.worker.repository.JobExecutionRepository;
 import com.naveenmandal.worker.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -32,6 +34,10 @@ public class JobWorkerService {
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @Autowired
+    @Lazy
+    private JobWorkerService self;
+
     // Whitelist pattern to sanitize shell arguments and prevent command injections
     private static final Pattern SAFE_SHELL_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s\\-_\\./:=?&]+$");
 
@@ -43,7 +49,7 @@ public class JobWorkerService {
         log.info("Received execution request on 'job.queue': {}", message);
         try {
             JobEvent event = objectMapper.readValue(message, JobEvent.class);
-            executeJob(event);
+            self.executeJob(event);
         } catch (Exception e) {
             log.error("Failed to process event: {}", message, e);
         }
@@ -62,9 +68,9 @@ public class JobWorkerService {
             long backoffDelay = (long) Math.pow(2, event.getRetryCount()) * 1000L;
             log.info("Applying exponential backoff of {}ms before executing retry {} for job {}", 
                     backoffDelay, event.getRetryCount(), event.getJobId());
-            Thread.sleep(backoffDelay);
+            Thread.sleep(backoffDelay); // Sleep outside transaction block
 
-            executeJob(event);
+            self.executeJob(event); // Invoke via transactional proxy
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw ie;
@@ -122,7 +128,7 @@ public class JobWorkerService {
      * Annotated with Transactional to guarantee atomicity of DB state write and Kafka trigger publishing.
      */
     @Transactional
-    protected void handleFailure(Job job, JobEvent event, JobExecution execution, Exception exception) {
+    void handleFailure(Job job, JobEvent event, JobExecution execution, Exception exception) {
         execution.setStatus(ExecutionStatus.FAILED);
         execution.setErrorMessage(exception.getMessage());
         execution.setFinishedAt(LocalDateTime.now());

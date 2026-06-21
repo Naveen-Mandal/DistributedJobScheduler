@@ -47,4 +47,12 @@ public class KafkaConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic jobExecutionUpdatesTopic() {
+        return TopicBuilder.name("job.execution.updates")
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
 }

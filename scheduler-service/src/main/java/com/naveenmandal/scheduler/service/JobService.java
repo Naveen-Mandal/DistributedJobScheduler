@@ -18,6 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -252,11 +253,14 @@ public class JobService {
             });
         }
         
+        Map<UUID, Job> jobMap = jobRepository.findAll().stream()
+                .collect(Collectors.toMap(Job::getId, j -> j));
+
         long dlqCount = latestExecutionPerJob.values().stream()
                 .filter(e -> e.getStatus() == ExecutionStatus.FAILED)
                 .filter(e -> {
-                    Optional<Job> j = jobRepository.findById(e.getJobId());
-                    return j.isPresent() && e.getRetryCount() >= j.get().getMaxRetries();
+                    Job j = jobMap.get(e.getJobId());
+                    return j != null && e.getRetryCount() >= j.getMaxRetries();
                 })
                 .count();
 

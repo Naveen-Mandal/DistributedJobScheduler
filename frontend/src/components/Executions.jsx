@@ -25,7 +25,8 @@ export default function Executions() {
     fetchHistory();
 
     // 2. Connect to Server-Sent Events stream for real-time logs
-    const sseUrl = api.getSseStreamUrl();
+    const token = localStorage.getItem('token');
+    const sseUrl = `${api.getSseStreamUrl()}?token=${token}`;
     const eventSource = new EventSource(sseUrl);
 
     eventSource.onopen = () => {

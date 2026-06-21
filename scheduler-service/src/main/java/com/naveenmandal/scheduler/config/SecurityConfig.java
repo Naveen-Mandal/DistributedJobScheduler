@@ -35,7 +35,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers("/api/executions/stream").permitAll() // SSE needs public or parameterized token access
+                .requestMatchers("/api/executions/stream").authenticated()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
