@@ -1,6 +1,6 @@
 package com.naveenmandal.scheduler.quartz;
 
-import com.naveenmandal.scheduler.event.JobEvent;
+import com.naveenmandal.common.event.JobEvent;
 import com.naveenmandal.scheduler.service.DistributedLockService;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.DisallowConcurrentExecution;

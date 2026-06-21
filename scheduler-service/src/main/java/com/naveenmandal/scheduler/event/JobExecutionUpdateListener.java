@@ -1,7 +1,7 @@
 package com.naveenmandal.scheduler.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.naveenmandal.scheduler.model.JobExecution;
+import com.naveenmandal.common.model.JobExecution;
 import com.naveenmandal.scheduler.service.JobService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

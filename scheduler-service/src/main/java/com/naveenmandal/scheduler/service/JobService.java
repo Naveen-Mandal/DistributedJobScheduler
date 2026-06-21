@@ -2,10 +2,10 @@ package com.naveenmandal.scheduler.service;
 
 import com.naveenmandal.scheduler.dto.JobCreateRequest;
 import com.naveenmandal.scheduler.dto.JobResponse;
-import com.naveenmandal.scheduler.event.JobEvent;
-import com.naveenmandal.scheduler.model.*;
-import com.naveenmandal.scheduler.repository.JobExecutionRepository;
-import com.naveenmandal.scheduler.repository.JobRepository;
+import com.naveenmandal.common.event.JobEvent;
+import com.naveenmandal.common.model.*;
+import com.naveenmandal.common.repository.JobExecutionRepository;
+import com.naveenmandal.common.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.SchedulerException;

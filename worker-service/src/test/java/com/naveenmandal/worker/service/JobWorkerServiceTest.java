@@ -1,7 +1,7 @@
 package com.naveenmandal.worker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.naveenmandal.worker.event.JobEvent;
+import com.naveenmandal.common.event.JobEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

@@ -1,6 +1,6 @@
 package com.naveenmandal.scheduler.dto;
 
-import com.naveenmandal.scheduler.model.JobType;
+import com.naveenmandal.common.model.JobType;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

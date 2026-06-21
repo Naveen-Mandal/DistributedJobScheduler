@@ -1,6 +1,6 @@
 package com.naveenmandal.scheduler.service;
 
-import com.naveenmandal.scheduler.model.Job;
+import com.naveenmandal.common.model.Job;
 import com.naveenmandal.scheduler.quartz.JobExecutorTask;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.*;

@@ -1,7 +1,7 @@
 package com.naveenmandal.scheduler.dto;
 
-import com.naveenmandal.scheduler.model.JobStatus;
-import com.naveenmandal.scheduler.model.JobType;
+import com.naveenmandal.common.model.JobStatus;
+import com.naveenmandal.common.model.JobType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

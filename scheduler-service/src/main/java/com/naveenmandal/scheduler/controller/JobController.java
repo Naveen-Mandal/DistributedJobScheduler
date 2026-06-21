@@ -2,7 +2,7 @@ package com.naveenmandal.scheduler.controller;
 
 import com.naveenmandal.scheduler.dto.JobCreateRequest;
 import com.naveenmandal.scheduler.dto.JobResponse;
-import com.naveenmandal.scheduler.model.JobExecution;
+import com.naveenmandal.common.model.JobExecution;
 import com.naveenmandal.scheduler.service.JobService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

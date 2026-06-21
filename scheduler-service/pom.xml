@@ -23,6 +23,12 @@
     </properties>
 
     <dependencies>
+        <!-- Shared Core Module -->
+        <dependency>
+            <groupId>com.naveenmandal</groupId>
+            <artifactId>common-module</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
         <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

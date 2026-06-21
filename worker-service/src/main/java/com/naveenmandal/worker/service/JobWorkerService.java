@@ -1,7 +1,7 @@
 package com.naveenmandal.worker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.naveenmandal.worker.event.JobEvent;
+import com.naveenmandal.common.event.JobEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
